@@ -1,349 +1,324 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Plus, 
-  Trash2, 
-  MapPin, 
-  Save, 
-  Edit3, 
-  Plane, 
-  Hotel, 
-  Utensils, 
-  Ticket,
-  ChevronRight,
-  History,
-  Users,
-  X,
-  CreditCard,
-  TrendingUp,
-  Sun,
-  Moon
-} from 'lucide-react';
-
-export default function App() {
-  // --- ESTADO ---
-  const [trips, setTrips] = useState([]);
-  const [editingId, setEditingId] = useState(null);
-  const [darkMode, setDarkMode] = useState(true);
-  
-  // Estado del formulario
-  const [formData, setFormData] = useState({
-    destination: '',
-    people: 2,
-    priceTransport: 0,
-    priceHotel: 0,
-    priceFood: 0,
-    events: [] 
-  });
-
-  const [newEvent, setNewEvent] = useState({ name: '', price: '' });
-
-  // --- CÁLCULOS ---
-  const totals = useMemo(() => {
-    const transport = parseFloat(formData.priceTransport) || 0;
-    const hotel = parseFloat(formData.priceHotel) || 0;
-    const food = parseFloat(formData.priceFood) || 0;
-    const eventsTotal = formData.events.reduce((sum, e) => sum + (parseFloat(e.price) || 0), 0);
-    
-    const total = transport + hotel + food + eventsTotal;
-    return { transport, hotel, food, eventsTotal, total };
-  }, [formData]);
-
-  // --- ACCIONES ---
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const addEvent = () => {
-    if (!newEvent.name || !newEvent.price) return;
-    setFormData({
-      ...formData,
-      events: [...formData.events, { id: Date.now(), name: newEvent.name, price: newEvent.price }]
-    });
-    setNewEvent({ name: '', price: '' });
-  };
-
-  const removeEvent = (id) => {
-    setFormData({
-      ...formData,
-      events: formData.events.filter(e => e.id !== id)
-    });
-  };
-
-  const saveTrip = () => {
-    if (!formData.destination) return;
-
-    if (editingId) {
-      setTrips(trips.map(t => t.id === editingId ? { ...formData, id: editingId } : t));
-      setEditingId(null);
-    } else {
-      setTrips([{ ...formData, id: Date.now() }, ...trips]);
-    }
-
-    setFormData({ destination: '', people: 2, priceTransport: 0, priceHotel: 0, priceFood: 0, events: [] });
-  };
-
-  const editTrip = (trip) => {
-    setFormData({ ...trip });
-    setEditingId(trip.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const deleteTrip = (id, e) => {
-    e.stopPropagation();
-    setTrips(trips.filter(t => t.id !== id));
-    if (editingId === id) {
-      setEditingId(null);
-      setFormData({ destination: '', people: 2, priceTransport: 0, priceHotel: 0, priceFood: 0, events: [] });
-    }
-  };
-
-  // --- COMPONENTE GRÁFICA ---
-  const DonutChart = ({ data }) => {
-    const { transport, hotel, food, eventsTotal, total } = data;
-    if (total === 0) return (
-      <div className={`w-32 h-32 rounded-full border-4 flex items-center justify-center text-[10px] font-bold uppercase ${darkMode ? 'border-zinc-800 text-zinc-600' : 'border-zinc-200 text-zinc-400'}`}>
-        Vacío
-      </div>
-    );
-
-    const categories = [
-      { val: transport, color: '#8b5cf6' }, // Violeta
-      { val: hotel, color: '#f59e0b' },     // Ámbar
-      { val: food, color: '#10b981' },      // Esmeralda
-      { val: eventsTotal, color: '#ec4899' } // Rosa
-    ];
-
-    let accumulated = 0;
-
-    return (
-      <div className="relative w-32 h-32">
-        <svg viewBox="0 0 32 32" className="w-full h-full -rotate-90">
-          {categories.map((cat, i) => {
-            const percent = (cat.val / total) * 100;
-            if (percent === 0) return null;
-            const dashArray = `${percent} ${100 - percent}`;
-            const dashOffset = -accumulated;
-            accumulated += percent;
-            return (
-              <circle
-                key={i}
-                cx="16" cy="16" r="14"
-                fill="transparent"
-                stroke={cat.color}
-                strokeWidth="4"
-                strokeDasharray={dashArray}
-                strokeDashoffset={dashOffset}
-                className="transition-all duration-1000 ease-in-out"
-              />
-            );
-          })}
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className={`w-20 h-20 rounded-full flex flex-col items-center justify-center ${darkMode ? 'bg-zinc-950' : 'bg-white shadow-inner'}`}>
-            <span className={`text-[10px] font-black uppercase ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Total</span>
-            <span className={`text-xs font-black ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{Math.round(total)}€</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // --- UI HELPERS ---
-  const InputGroup = ({ label, name, value, icon: Icon, placeholder }) => (
-    <div className="space-y-1.5 w-full">
-      <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 flex items-center gap-2 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-        <Icon size={12} className="text-violet-500" /> {label}
-      </label>
-      <input 
-        name={name}
-        type={name === 'destination' ? 'text' : 'number'}
-        placeholder={placeholder}
-        className={`w-full border rounded-xl px-4 py-3 font-medium outline-none transition-all placeholder:text-zinc-600 ${
-          darkMode 
-          ? 'bg-zinc-900 border-zinc-800 text-zinc-100 focus:border-violet-500' 
-          : 'bg-white border-zinc-200 text-zinc-900 focus:border-violet-400 shadow-sm'
-        }`}
-        value={value}
-        onChange={handleInputChange}
-      />
-    </div>
-  );
-
-  return (
-    <div className={`min-h-screen font-sans transition-colors duration-300 ${darkMode ? 'bg-black text-zinc-200 selection:bg-violet-500/30' : 'bg-slate-50 text-slate-800'}`}>
-      <div className="max-w-7xl mx-auto p-4 md:p-8">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OrbitPlanner - Gestión de Presupuestos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
+        .donut-ring { transition: stroke-dasharray 0.5s ease; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+        .dark { background-color: #000; color: #e4e4e7; }
+        .light { background-color: #f8fafc; color: #1e293b; }
+    </style>
+</head>
+<body class="dark">
+    <div class="max-w-7xl mx-auto p-4 md:p-8">
         
-        {/* HEADER & THEME SWITCH */}
-        <div className="flex justify-between items-center mb-10">
-          <header>
-            <h1 className={`text-4xl font-black tracking-tighter flex items-center gap-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-              <TrendingUp className="text-violet-500" size={36} />
-              Orbit<span className="text-violet-500">Planner</span>
-            </h1>
-            <p className={`text-sm font-medium ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Gestión de presupuestos multiviaje.</p>
-          </header>
-          
-          <button 
-            onClick={() => setDarkMode(!darkMode)}
-            className={`p-3 rounded-2xl border transition-all ${darkMode ? 'bg-zinc-900 border-zinc-800 text-yellow-400' : 'bg-white border-slate-200 text-slate-600 shadow-sm'}`}
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
+        <!-- HEADER -->
+        <div class="flex justify-between items-center mb-10">
+            <header>
+                <h1 class="text-4xl font-black tracking-tighter flex items-center gap-3">
+                    <span class="text-violet-500">Orbit</span>Planner
+                </h1>
+                <p class="text-sm font-medium opacity-50">Gestión de presupuestos multiviaje.</p>
+            </header>
+            <button id="themeToggle" class="p-3 rounded-2xl border border-zinc-800 bg-zinc-900 text-yellow-400 hover:scale-110 transition">
+                <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* LADO IZQUIERDO: EDITOR */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className={`rounded-[2.5rem] p-6 md:p-8 border shadow-2xl transition-colors ${darkMode ? 'bg-zinc-950/50 border-zinc-800' : 'bg-white border-slate-200'}`}>
-              <div className="flex justify-between items-start mb-8">
-                <h2 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                  {editingId ? <Edit3 size={20} className="text-violet-400" /> : <Plus size={20} className="text-violet-400" />}
-                  {editingId ? 'Modificar Destino' : 'Nuevo Viaje'}
-                </h2>
-                <DonutChart data={totals} />
-              </div>
-
-              <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <InputGroup label="Destino" name="destination" value={formData.destination} icon={MapPin} placeholder="Ej. Japón Verano" />
-                  <InputGroup label="Viajeros" name="people" value={formData.people} icon={Users} />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <InputGroup label="Vuelos" name="priceTransport" value={formData.priceTransport} icon={Plane} />
-                  <InputGroup label="Hotel" name="priceHotel" value={formData.priceHotel} icon={Hotel} />
-                  <InputGroup label="Comida" name="priceFood" value={formData.priceFood} icon={Utensils} />
-                </div>
-
-                <div className={`rounded-2xl p-5 border ${darkMode ? 'bg-zinc-900/30 border-zinc-800/50' : 'bg-slate-50 border-slate-100'}`}>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-4">Actividades y Eventos</label>
-                  
-                  <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                    <input 
-                      placeholder="Nombre (ej. Entradas Disney)"
-                      className={`flex-[2] border rounded-xl px-4 py-2 text-sm outline-none focus:border-violet-500 transition ${darkMode ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                      value={newEvent.name}
-                      onChange={(e) => setNewEvent({...newEvent, name: e.target.value})}
-                    />
-                    <input 
-                      type="number"
-                      placeholder="Precio"
-                      className={`flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:border-violet-500 transition ${darkMode ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                      value={newEvent.price}
-                      onChange={(e) => setNewEvent({...newEvent, price: e.target.value})}
-                    />
-                    <button onClick={addEvent} className="bg-violet-600 hover:bg-violet-500 text-white p-2 rounded-xl transition shadow-lg shadow-violet-500/20">
-                      <Plus size={20} />
-                    </button>
-                  </div>
-
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    {formData.events.map(event => (
-                      <div key={event.id} className={`flex justify-between items-center p-3 rounded-xl border group ${darkMode ? 'bg-zinc-950 border-zinc-900' : 'bg-white border-slate-100 shadow-sm'}`}>
-                        <div className="flex items-center gap-3">
-                          <Ticket size={14} className="text-violet-500" />
-                          <span className="text-sm font-medium">{event.name}</span>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- LADO IZQUIERDO: EDITOR -->
+            <div class="lg:col-span-7 space-y-6">
+                <div class="editor-card rounded-[2.5rem] p-6 md:p-8 border border-zinc-800 bg-zinc-950/50 shadow-2xl">
+                    <div class="flex justify-between items-start mb-8">
+                        <h2 id="formTitle" class="text-xl font-bold flex items-center gap-2">
+                            Nuevo Viaje
+                        </h2>
+                        <!-- Donut Chart SVG -->
+                        <div class="relative w-32 h-32">
+                            <svg viewBox="0 0 32 32" class="w-full h-full -rotate-90">
+                                <circle id="chartTransport" cx="16" cy="16" r="14" fill="transparent" stroke="#8b5cf6" stroke-width="4" stroke-dasharray="0 100" />
+                                <circle id="chartHotel" cx="16" cy="16" r="14" fill="transparent" stroke="#f59e0b" stroke-width="4" stroke-dasharray="0 100" />
+                                <circle id="chartFood" cx="16" cy="16" r="14" fill="transparent" stroke="#10b981" stroke-width="4" stroke-dasharray="0 100" />
+                                <circle id="chartEvents" cx="16" cy="16" r="14" fill="transparent" stroke="#ec4899" stroke-width="4" stroke-dasharray="0 100" />
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="text-center">
+                                    <p class="text-[8px] font-black uppercase opacity-50">Total</p>
+                                    <p id="totalDisplay" class="text-xs font-black">0€</p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm font-bold text-violet-500">{event.price}€</span>
-                          <button onClick={() => removeEvent(event.id)} className="text-zinc-500 hover:text-red-500 transition">
-                            <X size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-4 flex flex-col sm:flex-row items-center gap-6">
-                  <div className="flex-1 text-center sm:text-left">
-                    <p className={`text-[10px] font-bold uppercase tracking-widest ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Total Estimado</p>
-                    <div className="flex items-baseline gap-2 justify-center sm:justify-start">
-                      <span className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>{Math.round(totals.total)}€</span>
-                      <span className="text-violet-500 font-bold">/ {Math.round(totals.total / (formData.people || 1))}€ pp</span>
                     </div>
-                  </div>
-                  <button 
-                    onClick={saveTrip}
-                    className="w-full sm:w-auto bg-violet-600 hover:bg-violet-500 text-white px-10 py-4 rounded-2xl font-black transition-all shadow-xl shadow-violet-500/20 active:scale-95"
-                  >
-                    {editingId ? 'Guardar Cambios' : 'Añadir al Archivo'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* LADO DERECHO: LISTA */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className={`rounded-[2.5rem] p-6 md:p-8 border h-full min-h-[500px] transition-colors ${darkMode ? 'bg-zinc-950/50 border-zinc-800' : 'bg-white border-slate-200'}`}>
-              <h2 className={`text-xl font-bold mb-8 flex items-center gap-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                <History size={20} className="text-violet-500" />
-                Mis Viajes
-              </h2>
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-1 block">Destino</label>
+                                <input id="inDest" type="text" placeholder="Ej. Japón Verano" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 outline-none focus:border-violet-500 transition">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-1 block">Viajeros</label>
+                                <input id="inPeople" type="number" value="2" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 outline-none focus:border-violet-500 transition">
+                            </div>
+                        </div>
 
-              <div className="space-y-4">
-                {trips.length === 0 ? (
-                  <div className="py-24 text-center space-y-4">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${darkMode ? 'bg-zinc-900 text-zinc-700' : 'bg-slate-50 text-slate-200'}`}>
-                      <CreditCard size={32} />
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-1 block">Vuelos</label>
+                                <input id="inTransport" type="number" value="0" class="price-input w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 outline-none focus:border-violet-500 transition">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-1 block">Hotel</label>
+                                <input id="inHotel" type="number" value="0" class="price-input w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 outline-none focus:border-violet-500 transition">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-1 block">Comida</label>
+                                <input id="inFood" type="number" value="0" class="price-input w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 outline-none focus:border-violet-500 transition">
+                            </div>
+                        </div>
+
+                        <div class="rounded-2xl p-5 border border-zinc-800 bg-zinc-900/30">
+                            <label class="text-[10px] font-bold uppercase tracking-widest opacity-50 block mb-3">Eventos y Actividades</label>
+                            <div class="flex gap-2 mb-4">
+                                <input id="evName" placeholder="Nombre evento" class="flex-[2] bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-sm outline-none focus:border-violet-500 transition">
+                                <input id="evPrice" type="number" placeholder="Precio" class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-sm outline-none focus:border-violet-500 transition">
+                                <button id="addEventBtn" class="bg-violet-600 hover:bg-violet-500 text-white p-2 rounded-xl transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                                </button>
+                            </div>
+                            <div id="eventList" class="space-y-2 max-h-40 overflow-y-auto pr-1"></div>
+                        </div>
+
+                        <div class="pt-4 flex flex-col sm:flex-row items-center gap-6">
+                            <div class="flex-1 text-center sm:text-left">
+                                <p class="text-[10px] font-bold uppercase tracking-widest opacity-50">Total Estimado</p>
+                                <div class="flex items-baseline gap-2 justify-center sm:justify-start">
+                                    <span id="bigTotal" class="text-44xl font-black text-3xl">0€</span>
+                                    <span id="perPerson" class="text-violet-500 font-bold">/ 0€ pp</span>
+                                </div>
+                            </div>
+                            <button id="saveBtn" class="w-full sm:w-auto bg-violet-600 hover:bg-violet-500 text-white px-10 py-4 rounded-2xl font-black transition-all shadow-xl shadow-violet-500/20 active:scale-95">
+                                Añadir al Archivo
+                            </button>
+                        </div>
                     </div>
-                    <p className="text-zinc-500 font-bold text-sm">Tu archivo está vacío.</p>
-                  </div>
-                ) : (
-                  trips.map(trip => {
-                    const t = (parseFloat(trip.priceTransport) || 0) + 
-                              (parseFloat(trip.priceHotel) || 0) + 
-                              (parseFloat(trip.priceFood) || 0) + 
-                              trip.events.reduce((s, e) => s + (parseFloat(e.price) || 0), 0);
-                    
-                    return (
-                      <div 
-                        key={trip.id} 
-                        onClick={() => editTrip(trip)}
-                        className={`group relative p-5 rounded-2xl border transition-all cursor-pointer ${
-                          editingId === trip.id 
-                          ? 'bg-violet-500/10 border-violet-500 shadow-[0_0_20px_rgba(139,92,246,0.1)]' 
-                          : darkMode ? 'bg-zinc-900/40 border-zinc-800 hover:border-zinc-700' : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-md'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-4">
-                          <div>
-                            <h4 className={`text-lg font-black transition-colors ${darkMode ? 'text-white group-hover:text-violet-400' : 'text-slate-900 group-hover:text-violet-600'}`}>{trip.destination}</h4>
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase flex items-center gap-1 mt-1">
-                              <Users size={10} /> {trip.people} personas
-                            </span>
-                          </div>
-                          <button onClick={(e) => deleteTrip(trip.id, e)} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-
-                        <div className="flex justify-between items-end">
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-zinc-500 uppercase">Total</p>
-                            <p className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>{Math.round(t)}€</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-bold text-zinc-500 uppercase">P. persona</p>
-                            <p className="text-lg font-bold text-violet-500">{Math.round(t / (trip.people || 1))}€</p>
-                          </div>
-                        </div>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                          <ChevronRight className="text-violet-500" size={24} />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+                </div>
             </div>
-          </div>
+
+            <!-- LADO DERECHO: HISTORIAL -->
+            <div class="lg:col-span-5 space-y-6">
+                <div class="rounded-[2.5rem] p-6 md:p-8 border border-zinc-800 bg-zinc-950/50 h-full min-h-[500px]">
+                    <h2 class="text-xl font-bold mb-8 flex items-center gap-3">
+                        Mis Viajes
+                    </h2>
+                    <div id="tripHistory" class="space-y-4"></div>
+                </div>
+            </div>
 
         </div>
-      </div>
     </div>
-  );
-}
+
+    <script>
+        let trips = [];
+        let editingId = null;
+        let currentEvents = [];
+        let isDarkMode = true;
+
+        // Elementos UI
+        const themeBtn = document.getElementById('themeToggle');
+        const saveBtn = document.getElementById('saveBtn');
+        const addEventBtn = document.getElementById('addEventBtn');
+        const eventList = document.getElementById('eventList');
+        const tripHistory = document.getElementById('tripHistory');
+
+        // Inputs
+        const inDest = document.getElementById('inDest');
+        const inPeople = document.getElementById('inPeople');
+        const inTransport = document.getElementById('inTransport');
+        const inHotel = document.getElementById('inHotel');
+        const inFood = document.getElementById('inFood');
+        const evName = document.getElementById('evName');
+        const evPrice = document.getElementById('evPrice');
+
+        // Theme Toggle
+        themeBtn.onclick = () => {
+            isDarkMode = !isDarkMode;
+            document.body.className = isDarkMode ? 'dark' : 'light';
+            themeBtn.className = isDarkMode 
+                ? 'p-3 rounded-2xl border border-zinc-800 bg-zinc-900 text-yellow-400' 
+                : 'p-3 rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm';
+            updateUI();
+        };
+
+        function calculateTotals() {
+            const transport = parseFloat(inTransport.value) || 0;
+            const hotel = parseFloat(inHotel.value) || 0;
+            const food = parseFloat(inFood.value) || 0;
+            const eventsTotal = currentEvents.reduce((s, e) => s + e.price, 0);
+            const total = transport + hotel + food + eventsTotal;
+            const people = parseInt(inPeople.value) || 1;
+            return { transport, hotel, food, eventsTotal, total, people };
+        }
+
+        function updateUI() {
+            const { transport, hotel, food, eventsTotal, total, people } = calculateTotals();
+            
+            // Textos
+            document.getElementById('totalDisplay').innerText = Math.round(total) + '€';
+            document.getElementById('bigTotal').innerText = Math.round(total) + '€';
+            document.getElementById('perPerson').innerText = '/ ' + Math.round(total / people) + '€ pp';
+
+            // Gráfica
+            updateChart(transport, hotel, food, eventsTotal, total);
+            
+            // Lista de eventos
+            eventList.innerHTML = currentEvents.map(e => `
+                <div class="flex justify-between items-center p-3 rounded-xl border border-zinc-900 bg-zinc-950">
+                    <span class="text-sm font-medium">${e.name}</span>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-bold text-violet-500">${e.price}€</span>
+                        <button onclick="removeEvent(${e.id})" class="text-zinc-600 hover:text-red-500">×</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Lista de Viajes
+            renderHistory();
+        }
+
+        function updateChart(t, h, f, e, total) {
+            const circles = [
+                { el: 'chartTransport', val: t },
+                { el: 'chartHotel', val: h },
+                { el: 'chartFood', val: f },
+                { el: 'chartEvents', val: e }
+            ];
+            
+            let accumulated = 0;
+            circles.forEach(c => {
+                const circle = document.getElementById(c.el);
+                if (total === 0) {
+                    circle.setAttribute('stroke-dasharray', '0 100');
+                    return;
+                }
+                const percent = (c.val / total) * 100;
+                circle.setAttribute('stroke-dasharray', `${percent} ${100 - percent}`);
+                circle.setAttribute('stroke-dashoffset', -accumulated);
+                accumulated += percent;
+            });
+        }
+
+        addEventBtn.onclick = () => {
+            if (!evName.value || !evPrice.value) return;
+            currentEvents.push({ id: Date.now(), name: evName.value, price: parseFloat(evPrice.value) });
+            evName.value = ''; evPrice.value = '';
+            updateUI();
+        };
+
+        window.removeEvent = (id) => {
+            currentEvents = currentEvents.filter(e => e.id !== id);
+            updateUI();
+        };
+
+        saveBtn.onclick = () => {
+            if (!inDest.value) return;
+            const tripData = {
+                id: editingId || Date.now(),
+                destination: inDest.value,
+                people: parseInt(inPeople.value),
+                priceTransport: parseFloat(inTransport.value),
+                priceHotel: parseFloat(inHotel.value),
+                priceFood: parseFloat(inFood.value),
+                events: [...currentEvents]
+            };
+
+            if (editingId) {
+                trips = trips.map(t => t.id === editingId ? tripData : t);
+                editingId = null;
+                saveBtn.innerText = "Añadir al Archivo";
+            } else {
+                trips.unshift(tripData);
+            }
+
+            resetForm();
+            updateUI();
+        };
+
+        function resetForm() {
+            inDest.value = ''; inPeople.value = 2; inTransport.value = 0; 
+            inHotel.value = 0; inFood.value = 0; currentEvents = [];
+        }
+
+        function renderHistory() {
+            if (trips.length === 0) {
+                tripHistory.innerHTML = '<div class="py-20 text-center opacity-30">No hay viajes guardados</div>';
+                return;
+            }
+            tripHistory.innerHTML = trips.map(t => {
+                const total = t.priceTransport + t.priceHotel + t.priceFood + t.events.reduce((s,e)=>s+e.price,0);
+                return `
+                <div onclick="editTrip(${t.id})" class="p-5 rounded-2xl border ${editingId === t.id ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-800 bg-zinc-900/40'} cursor-pointer hover:border-zinc-600 transition">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-black">${t.destination}</h4>
+                        <button onclick="deleteTrip(event, ${t.id})" class="text-zinc-600 hover:text-red-500">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        </button>
+                    </div>
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <p class="text-[10px] font-bold opacity-50 uppercase">Total</p>
+                            <p class="text-xl font-black">${Math.round(total)}€</p>
+                        </div>
+                        <div class="text-right">
+                             <p class="text-[10px] font-bold opacity-50 uppercase">${t.people} Personas</p>
+                             <p class="text-lg font-bold text-violet-500">${Math.round(total/t.people)}€ pp</p>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        window.editTrip = (id) => {
+            const trip = trips.find(t => t.id === id);
+            editingId = id;
+            inDest.value = trip.destination;
+            inPeople.value = trip.people;
+            inTransport.value = trip.priceTransport;
+            inHotel.value = trip.priceHotel;
+            inFood.value = trip.priceFood;
+            currentEvents = [...trip.events];
+            saveBtn.innerText = "Actualizar Viaje";
+            document.getElementById('formTitle').innerText = "Editando: " + trip.destination;
+            updateUI();
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        };
+
+        window.deleteTrip = (e, id) => {
+            e.stopPropagation();
+            trips = trips.filter(t => t.id !== id);
+            if(editingId === id) {
+                editingId = null;
+                resetForm();
+            }
+            updateUI();
+        };
+
+        // Listeners para actualizaciones en vivo
+        document.querySelectorAll('input').forEach(input => {
+            input.oninput = updateUI;
+        });
+
+        // Inicio
+        updateUI();
+    </script>
+</body>
+</html>
